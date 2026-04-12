@@ -5,7 +5,7 @@ import './App.css'
 import 'leaflet/dist/leaflet.css';
 
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
-import { useRef, useMemo } from 'react'; // React 原生 Hooks，用于处理拖动逻辑
+import { useRef, useMemo } from 'react'; 
 
 import L from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -183,7 +183,48 @@ function App() {
     }
   }
 
-  // 9. 下载/导出数据 (Export to JSON)
+  // 9. 智能派单 (Web Share API)
+  const handleDispatch = async (ticket) => {
+    const dispatchMap = {
+      'Facility Damage': { department: 'Maintenance Team',      email: 'maintenance@park.com' },
+      'Hygiene':         { department: 'Cleaning Squad',         email: 'cleaning@park.com'    },
+      'Supply Shortage': { department: 'Supply Manager',         email: 'supply@park.com'      },
+      'Animal Welfare':  { department: 'Animal Care Team',       email: 'animalcare@park.com'  },
+      'Rule Violation':  { department: 'Security Office',        email: 'security@park.com'    },
+      'Other':           { department: 'General Administration',  email: 'admin@park.com'       },
+    }
+
+    const { department, email } = dispatchMap[ticket.category] || dispatchMap['Other']
+
+    const reportText = `
+[SmartPet Warden Alert]
+Forwarded to: ${department}
+Category: ${ticket.category}
+Description: ${ticket.description}
+Time: ${ticket.date}
+Location Coordinates: ${ticket.coords}
+
+Please check and resolve this issue as soon as possible.
+    `.trim()
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Park Issue: ${ticket.category}`,
+          text: reportText,
+        })
+        console.log('Report dispatched successfully')
+      } catch (error) {
+        console.log('User cancelled the share or share failed', error)
+      }
+    } else {
+      alert(`Web Share not supported on this device. Opening email client to contact ${department}...`)
+      const mailtoLink = `mailto:${email}?subject=Park Issue: ${ticket.category}&body=${encodeURIComponent(reportText)}`
+      window.location.href = mailtoLink
+    }
+  }
+
+  // 10. 下载/导出数据 (Export to JSON)
   // 文件名加入日期时间戳，避免多次导出时覆盖同名文件
   const handleExportData = () => {
     if (!tickets || tickets.length === 0) {
@@ -211,6 +252,8 @@ function App() {
         <h1>SmartPet Warden</h1>
         <p>Park Management System</p>
       </div>
+
+      
 
       {/* Network status indicator */}
       <div style={{
@@ -397,6 +440,19 @@ function App() {
                       onClick={() => toggleFixedStatus(ticket.id, ticket.isFixed)}
                     >
                       {ticket.isFixed ? 'Reopen' : 'Resolve'}
+                    </button>
+                    <button
+                      className="btn"
+                      style={{
+                        flex: 1,
+                        backgroundColor: '#e3f2fd',
+                        color: '#1976d2',
+                        padding: '10px',
+                        fontSize: '12px'
+                      }}
+                      onClick={() => handleDispatch(ticket)}
+                    >
+                      Dispatch
                     </button>
                     {/* A confirmation box will pop up for deletion after clicking. */}
                     <button
