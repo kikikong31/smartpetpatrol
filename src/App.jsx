@@ -197,14 +197,14 @@ function App() {
     const { department, email } = dispatchMap[ticket.category] || dispatchMap['Other']
 
     const reportText = `
-[SmartPet Warden Alert]
-Forwarded to: ${department}
-Category: ${ticket.category}
-Description: ${ticket.description}
-Time: ${ticket.date}
-Location Coordinates: ${ticket.coords}
+        [SmartPet Warden Alert]
+        Forwarded to: ${department}
+        Category: ${ticket.category}
+        Description: ${ticket.description}
+        Time: ${ticket.date}
+        Location Coordinates: ${ticket.coords}
 
-Please check and resolve this issue as soon as possible.
+    Please check and resolve this issue as soon as possible.
     `.trim()
 
     if (navigator.share) {
@@ -325,6 +325,7 @@ Please check and resolve this issue as soon as possible.
       <Marker 
         position={[location.lat, location.lng]}
         draggable={true}
+
         eventHandlers={{
           dragend: (e) => {
             const marker = e.target;
