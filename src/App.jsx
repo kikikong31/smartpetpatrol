@@ -21,28 +21,33 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 function App() {
   // 1. 状态管理
+  // state management
   const [activeTab, setActiveTab] = useState('report')
   const [location, setLocation] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   // 表单相关状态
+  // Form-related status
   const [category, setCategory] = useState('Facility Damage')
   const [inputText, setInputText] = useState('')
   const [photo, setPhoto] = useState(null)
 
   // 网络状态检测
+  // Network status detection
   const [isOnline, setIsOnline] = useState(navigator.onLine)
 
   // 2. 从 Dexie 数据库实时读取数据
+  // Real-time data reading from Dexie database
   const tickets = useLiveQuery(() => db.tickets.toArray())
 
   // 3. 监听网络上线/离线状态
-  // 修复：依赖数组改为 []，监听器只注册一次，避免 tickets 变化时反复注册
+  // Listen for online/offline status changes
   useEffect(() => {
     const handleOnline = async () => {
       setIsOnline(true)
       // 网络恢复时，将所有 'Pending Sync' 的工单批量更新为 'Synced'
+      // When the network is restored, batch update all 'Pending Sync' tickets to 'Synced'
       try {
         const updatedCount = await db.tickets
           .where('syncStatus')
@@ -66,9 +71,9 @@ function App() {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
-  }, []) // 修复：空依赖数组，只在组件挂载时注册一次
+  }, []) 
 
-  // 4. 地理定位 (Hardware API: Geolocation)
+  // 4.  (Hardware API: Geolocation)
   const handleGetLocation = () => {
     setLoading(true)
     setError(null)
@@ -86,7 +91,7 @@ function App() {
           lng: position.coords.longitude.toFixed(5)
         })
         setLoading(false)
-        // 新增：定位成功时触发短震动反馈 (Hardware API: Vibration API)
+        // (Hardware API: Vibration API)
         navigator.vibrate?.(100)
       },
       () => {
@@ -97,7 +102,7 @@ function App() {
   }
 
   // 5. 相机与图片压缩 (Hardware API: Camera)
-  // 修复：移除 capture="environment"，现在用户可以选择拍照或从相册选图
+  // Photo and album
   const handlePhotoCapture = (event) => {
     const file = event.target.files[0]
     if (file) {
@@ -123,7 +128,7 @@ function App() {
     }
   }
 
-  // 6. CRUD: 创建新工单
+  // 6. CRUD: Create (Add new ticket)
   const handleAddTicket = async () => {
     if (!inputText.trim()) {
       alert('Please enter a description!')
@@ -146,7 +151,8 @@ function App() {
       setLocation(null)
       setPhoto(null)
 
-      // 新增：提交成功时触发震动反馈 (Hardware API: Vibration API)
+      // A vibration feedback is triggered when the submission is successful. 
+      // (Hardware API: Vibration API) (Not useful for implementation)
       navigator.vibrate?.(200)
 
       alert(isOnline ? 'Report submitted successfully!' : 'Saved offline. Will sync when network returns.')
@@ -157,7 +163,7 @@ function App() {
     }
   }
 
-  // 7. CRUD: 更新状态
+  // 7. CRUD: Update (Toggle fixed status)
   const toggleFixedStatus = async (id, currentStatus) => {
     try {
       await db.tickets.update(id, { isFixed: !currentStatus })
@@ -166,8 +172,7 @@ function App() {
     }
   }
 
-  // 8. CRUD: 删除工单
-  // 修复：删除前新增 confirm 确认弹窗，防止误删
+  // 8. CRUD: delete
   const handleDeleteTicket = async (id) => {
     const confirmed = window.confirm('Are you sure you want to delete this report? This action cannot be undone.')
     if (!confirmed) return
@@ -178,48 +183,8 @@ function App() {
     }
   }
 
-  // 9. 智能派单
-  const handleDispatch = async (ticket) => {
-    const dispatchMap = {
-      'Facility Damage': { department: 'Maintenance Team',      email: 'maintenance@park.com' },
-      'Hygiene':         { department: 'Cleaning Squad',         email: 'cleaning@park.com'    },
-      'Supply Shortage': { department: 'Supply Manager',         email: 'supply@park.com'      },
-      'Rule Violation':  { department: 'Security Office',        email: 'security@park.com'    },
-      'Other':           { department: 'General Administration',  email: 'admin@park.com'       },
-    }
-
-    const { department, email } = dispatchMap[ticket.category] || dispatchMap['Other']
-
-    const reportText = `
-[SmartPet Warden Alert]
-Forwarded to: ${department}
-Category: ${ticket.category}
-Description: ${ticket.description}
-Time: ${ticket.date}
-Location Coordinates: ${ticket.coords}
-
-Please check and resolve this issue as soon as possible.
-    `.trim()
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Park Issue: ${ticket.category}`,
-          text: reportText,
-        })
-        console.log('Report dispatched successfully')
-      } catch (error) {
-        console.log('User cancelled the share or share failed', error)
-      }
-    } else {
-      alert(`Web Share not supported on this device. Opening email client to contact ${department}...`)
-      const mailtoLink = `mailto:${email}?subject=Park Issue: ${ticket.category}&body=${encodeURIComponent(reportText)}`
-      window.location.href = mailtoLink
-    }
-  }
-
-  // 10. 下载/导出数据 (Export to JSON)
-  // 改进：文件名加入日期时间戳，避免多次导出时覆盖同名文件
+  // 9. 下载/导出数据 (Export to JSON)
+  // 文件名加入日期时间戳，避免多次导出时覆盖同名文件
   const handleExportData = () => {
     if (!tickets || tickets.length === 0) {
       alert('No data to export. The park is safe!')
@@ -239,16 +204,15 @@ Please check and resolve this issue as soon as possible.
     downloadAnchorNode.remove()
   }
 
-  // 11. 渲染界面
+  // 11. UI
   return (
     <div className="app-container">
-      {/* 顶部标题 */}
       <div className="header">
         <h1>SmartPet Warden</h1>
         <p>Park Management System</p>
       </div>
 
-      {/* 网络状态指示器 */}
+      {/* Network status indicator */}
       <div style={{
         backgroundColor: isOnline ? '#e8f5e9' : '#ffebee',
         color: isOnline ? '#2e7d32' : '#c62828',
@@ -262,7 +226,7 @@ Please check and resolve this issue as soon as possible.
       </div>
 
       <div className="content">
-        {/* === 报告页面 (Report Tab) === */}
+        {/* === Report Tab === */}
         {activeTab === 'report' && (
           <div className="card">
             <h3 style={{ marginTop: 0, color: '#2e7d32' }}>New Issue Report</h3>
@@ -272,10 +236,11 @@ Please check and resolve this issue as soon as possible.
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
-              <option value="Facility Damage">Facility Damage</option>
-              <option value="Hygiene">Hygiene</option>
-              <option value="Supply Shortage">Supply Shortage</option>
-              <option value="Rule Violation">Rule Violation</option>
+              <option value="Facility Damage">Facility Damage – Broken Equipment</option>
+              <option value="Hygiene">Hygiene – Cleaning Required</option>
+              <option value="Supply Shortage">Supply Shortage – Food / Water / Bags</option>
+              <option value="Animal Welfare">Animal Welfare – Injured / Lost Pet</option>
+              <option value="Rule Violation">Rule Violation – Aggressive Pet / Owner</option>
               <option value="Other">Other</option>
             </select>
 
@@ -301,19 +266,19 @@ Please check and resolve this issue as soon as possible.
       </span>
     </p>
     
-    {/* 地图容器，必须指定高度 */}
+    {/* Map container, height must be specified */}
     <MapContainer 
       center={[location.lat, location.lng]} 
       zoom={16} 
       style={{ height: '200px', width: '100%', borderRadius: '8px', zIndex: 0 }}
     >
-      {/* 调用免费的 OSM 瓦片图层 */}
+      {/* Call for the free OSM */}
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       
-      {/* 可拖动的大头针 */}
+      {/* Draggable pins */}
       <Marker 
         position={[location.lat, location.lng]}
         draggable={true}
@@ -321,12 +286,10 @@ Please check and resolve this issue as soon as possible.
           dragend: (e) => {
             const marker = e.target;
             const position = marker.getLatLng();
-            // 在这里执行 Update 操作！将拖动后的新坐标更新到 State 中
             setLocation({
               lat: position.lat.toFixed(5),
               lng: position.lng.toFixed(5)
             });
-            // 可选：加个轻微震动反馈
             navigator.vibrate?.(50); 
           },
         }}
@@ -336,7 +299,7 @@ Please check and resolve this issue as soon as possible.
   </div>
 )}
 
-            {/* 修复：移除 capture="environment"，支持相机和相册两种方式 */}
+            {/* Camera and photo album */}
             <label className="btn btn-outline" style={{ display: 'flex', boxSizing: 'border-box' }}>
               Take / Choose Evidence Photo
               <input
@@ -367,14 +330,14 @@ Please check and resolve this issue as soon as possible.
           </div>
         )}
 
-        {/* === 历史记录页面 (History Tab) === */}
+        {/* === History Tab === */}
         {activeTab === 'history' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h3 style={{ color: '#2e7d32', margin: 0 }}>
                 Audit Logs ({tickets ? tickets.length : 0})
               </h3>
-              {/* 数据导出按钮 */}
+              {/* Data export button */}
               <button
                 onClick={handleExportData}
                 style={{
@@ -435,20 +398,7 @@ Please check and resolve this issue as soon as possible.
                     >
                       {ticket.isFixed ? 'Reopen' : 'Resolve'}
                     </button>
-                    <button
-                      className="btn"
-                      style={{
-                        flex: 1,
-                        backgroundColor: '#e3f2fd',
-                        color: '#1976d2',
-                        padding: '10px',
-                        fontSize: '12px'
-                      }}
-                      onClick={() => handleDispatch(ticket)}
-                    >
-                      Dispatch
-                    </button>
-                    {/* 修复：点击后弹出确认框再删除 */}
+                    {/* A confirmation box will pop up for deletion after clicking. */}
                     <button
                       className="btn"
                       style={{
@@ -470,7 +420,7 @@ Please check and resolve this issue as soon as possible.
         )}
       </div>
 
-      {/* 底部导航栏 */}
+      {/* Bottom navigation bar */}
       <div className="bottom-nav">
         <button
           className={`nav-item ${activeTab === 'report' ? 'active' : ''}`}
